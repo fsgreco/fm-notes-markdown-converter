@@ -1,13 +1,20 @@
 {
-  "name": "frontend-masters-notes-markdown-converter",
+  "name": "fm-notes-markdown-converter",
   "version": "0.0.1",
   "description": "Script that generates a markdown file from the notes you take at Frontend Masters courses.",
   "main": "index.js",
   "scripts": {
     "start": "node ."
   },
-  "keywords": [ "markdown", "converter", "frontend masters"],
+  "keywords": [
+    "markdown",
+    "converter",
+    "frontend masters"
+  ],
   "author": "Santiago Greco <fsgreco@fastmail.com> (https://github.com/fsgreco)",
   "license": "MIT",
-  "type": "module"
+  "type": "module",
+  "engines": {
+    "node": ">=17.0.0"
+  }
 }
