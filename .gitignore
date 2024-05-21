@@ -2,3 +2,8 @@
 data.json
 *.md
 !README.md
+node_modules/
+dist/*
+sources/*
+!dist/.gitkeep
+!sources/.gitkeep

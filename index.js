@@ -1,10 +1,10 @@
-import data from './data.json' assert {type: "json"}
+import data from './sources/data.json' assert {type: "json"}
 import fs from 'node:fs/promises'
 
 let content = generateMarkdown(data)
 
 try {
-	await fs.writeFile(`${data.course}.md`, content )
+	await fs.writeFile(`./dist/${data.course}.md`, content )
 	console.log('Write file ', `${data.course}.md`)
 } catch (err) {
 	console.error(err)
