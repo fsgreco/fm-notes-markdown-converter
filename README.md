@@ -1,4 +1,4 @@
-# Frontend Masters notes markdown converter
+# Frontend Masters / Josh Comeau notes markdown converter
 
 This script generates a markdown file from the notes you wrote on Frontend Masters course. It needs the exported json with your notes. 
 
