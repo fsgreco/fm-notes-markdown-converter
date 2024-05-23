@@ -17,30 +17,34 @@ composeEntireMarkdown(notes)
  */
 async function composeEntireMarkdown( notes ) {
 
-	let markdownBody = []
-	markdownBody.push(composeIntro(notes[0]))
+	/** Sort notes by its modules/lesson slug 
+	 * @param {'lessonSlug'|'moduleSlug'} slug
+	 * @return { (a:Note,b:Note) => number } A sorting function
+	 */
+	const sortBy = slug => (a,b) => getNum(a[slug]) - getNum(b[slug])
 
-	/** @param {Note['lessonSlug']} str */
-	const getNum = str => str.split('-')[0].split('.')[0]
-	// SORT - order by lesson 
-	let notesSortedByLesson = [...notes].sort((a,b) => parseInt(getNum(a.lessonSlug)) - parseInt(getNum(b.lessonSlug)))
-	// SORT - order by module 
-	const notesSortedByModule = [...notesSortedByLesson].sort((a,b) => parseInt(getNum(a.moduleSlug)) - parseInt(getNum(b.moduleSlug)) )
-
-	// GENERATE MODULES ARRAY
-	const modules = Array.from( new Set(notesSortedByModule.map( note => note.moduleTitle )) )
+	// GENERATE MODULES ARRAY (via sorted by modules set) 
+	const modules = Array.from( new Set([...notes].sort(sortBy('moduleSlug')).map( genModuleTitle )) )
 
 	// CREATE A MAP: Modules > Lessons > Notes 
 	/** @type {Map<Note['moduleTitle'],{ [key: Note['lessonTitle']]: Array<Note> }>} */
-	const notesMap = new Map( modules.map( mod => [mod, {} ]) )
-	notes.forEach( note => { 
-		let module = notesMap.get(note.moduleTitle)
+	const notesMap = new Map( modules.map( mod => [mod, {} ]) );
+	// sort lessons and add them to respective modules
+	[ ...notes ].sort( sortBy('lessonSlug') ).forEach( note => { 
+		let module = notesMap.get(genModuleTitle(note))
 		if ( ! module[`${note.lessonTitle}`] ) module[`${note.lessonTitle}`] = []
 		let lessons = module[`${note.lessonTitle}`] 
 		lessons.push(note)
 	} )
 
 	// COMPOSE MARKDOWN MODULE > LESSONS > NOTES 
+	let markdownBody = []
+	
+	const courseName = notes[0].courseSlug.replace(/-/g, ' ').toUpperCase()
+	const courseUrl = `https://courses.joshwcomeau.com/${notes[0].courseSlug}`
+	let intro = [ `# ${courseName}`, `From Josh Comeau Course: [${courseName}](${courseUrl})` ]
+	markdownBody.push( ...intro )
+
 	for( const [module, lessons] of notesMap.entries()) {
 		console.log({module, lessons: Object.keys(lessons).length })
 		markdownBody.push(`## ${module}`)
@@ -58,20 +62,6 @@ async function composeEntireMarkdown( notes ) {
 	await fs.writeFile(`./dist/${notes[0].courseSlug}.md`, content)
 }
 
-
-/**
- * Compose will return a markdown string
- * @param {Note} oneNote 
- * @returns 
- */
-function composeIntro(oneNote) {
-	const title = createCourseTitle( oneNote.courseSlug )
-	let intro = [ 
-		`# ${title}`, 
-		`From Josh Comeau Course: [${title}](https://courses.joshwcomeau.com/${oneNote.courseSlug})` ]
-	return intro.join('\n')
-}
-
 /**
  * Compose lesson text function
  * @param {Note} note
@@ -81,7 +71,7 @@ function composeLessonText(note) {
 	if (note.type === 'lesson-video') {
 		markdownBody.push(`- From video: **${note.metadata.videoTitle}** at ${convertSeconds(note.metadata.bookmarkedTime)}:\n`)
 	} else {
-		markdownBody.push(`Josh quote:\n> ${sanitizeForMarkdown(note.metadata.highlighted)}\n`)
+		markdownBody.push(`> ${sanitizeForMarkdown(note.metadata.highlighted).replace(/(?!`)<(dl|img|div|canvas|figcaption|section|body|form)>(?!`)/g, '`<$1>`')}\n`)
 	}
 	markdownBody.push( parseNoteContent( note.content ) )
 	return markdownBody.join('\n')
@@ -114,13 +104,16 @@ function parseNoteContent(htmlContent) {
 
 /* HELPERS */
 
-/**
- * Take the course slug and return a string
- * @param {Note['courseSlug']} courseSlug 
- * @returns 
- */
-function createCourseTitle(courseSlug) {
-	return courseSlug.replace(/-/g, ' ').toLocaleUpperCase()
+// * if slug has 'project' instead of number it will be NaN - if NaN assign a hight number and set 'project on module title
+
+/** Create module title @param {Note} note @return {`${number} - ${Note['moduleTitle']}`} */
+function genModuleTitle(note) { return `${  getNum(note.moduleSlug) === 100 ? 'Project' : getNum(note.moduleSlug) } - ${note.moduleTitle}`}
+
+/** Get num from slug @param {Note['moduleSlug'] | Note['lessonSlug']} str */
+function getNum(str) { 
+	let lessonNum = Number(str.split('-')[0]) 
+	if ( ! Number.isNaN(lessonNum) ) return lessonNum
+	else return 100
 }
 
 function sanitizeForMarkdown(str) {
