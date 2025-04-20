@@ -15,7 +15,7 @@ This script generates a markdown file from the notes you wrote on Frontend Maste
 
 * This is an early implementation just for my convenience (an alpha at least), feedback is appreciated. 
 
-* You can generate a version without timestamp links by passing `false` as a second argument to the function `generateMarkdown`
+* You can generate a version without timestamp links by running `npm start -- nolinks` at step 4.
 
 ## Bonus - Josh Comeau course notes:
 

@@ -1,9 +1,15 @@
-import notes from './sources/notes.json' assert { type: "json" }
+import notes from './sources/notes.json' with { type: "json" }
 import fs from 'node:fs/promises'
 import TurndownService from "turndown"
 
+let args = process.argv.splice(2)[0]
+
 /** @type {'js'|'css'} */
-let courseType = /css/.test(process.argv.splice(2)[0]) ? 'css' : 'js'
+let courseType = /css/.test(args) ? 'css' : 'js'
+/* 
+let { default: notes } = await import(`./sources/${args ? courseType : 'notes'}.json`, { 
+	with: { type: "json" } 
+} )  */
 
 composeEntireMarkdown(notes)
 

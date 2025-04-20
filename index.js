@@ -1,7 +1,12 @@
-import data from './sources/data.json' assert {type: "json"}
+import data from './sources/data.json' with {type: "json"}
 import fs from 'node:fs/promises'
 
-let content = generateMarkdown(data)
+let args = process.argv.splice(2)[0]
+
+/** @type {boolean} */
+let withTimeLinks = /nolinks/.test(args) ? false : true
+
+let content = generateMarkdown(data, withTimeLinks)
 
 try {
 	await fs.writeFile(`./dist/${data.course}.md`, content )
