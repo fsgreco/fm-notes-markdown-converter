@@ -1,6 +1,6 @@
 {
   "name": "fm-notes-markdown-converter",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Script that generates a markdown file from the notes you take at Frontend Masters courses.",
   "main": "index.js",
   "scripts": {
