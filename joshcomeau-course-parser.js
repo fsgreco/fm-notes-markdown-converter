@@ -1,18 +1,41 @@
-import notes from './sources/notes.json' with { type: "json" }
+//@ts-check
+import path from 'node:path'
 import fs from 'node:fs/promises'
+import { parseArgs } from 'node:util'
 import TurndownService from "turndown"
+// import notes from './sources/notes.json' with { type: "json" }
 
-let args = process.argv.splice(2)[0]
+// Import types (using JSDoc imports)
+/** @typedef {import('./types.js').Note} Note */
 
-/** @type {'js'|'css'} */
-let courseType = /css/.test(args) ? 'css' : 'js'
-/* 
-let { default: notes } = await import(`./sources/${args ? courseType : 'notes'}.json`, { 
-	with: { type: "json" } 
-} )  */
+const DEFAULT_NOTES_PATH = path.resolve(process.cwd()) + '/sources/notes.json'
+const DEFAULT_NOTES_DEST = path.resolve(process.cwd()) + '/dist/notes.md'
 
-composeEntireMarkdown(notes)
+const CLI_OPTIONS = {
+	input: { type: "string", short: 'i', default: DEFAULT_NOTES_PATH },
+	output: { type: "string", short: 'o', default: DEFAULT_NOTES_DEST },
+	course: { type: "string", short: 'c', default: 'js'}
+}
 
+/** @type {{values: {input: string, output:string, course: 'js'|'css'|'animations'}}} */
+//@ts-ignore
+const { values } = parseArgs({ options: CLI_OPTIONS, strict: true})
+
+await checkFileExistance(values.input)
+
+/** @type {{default: Note[]}} */
+const { default: notes } = await import( values.input, { with: { type: "json" } } ) 
+
+try {
+
+	await composeEntireMarkdown(notes)
+	console.log('\n')
+	console.log(`✅ Successfully converted your notes to Markdown!\n`)
+	console.log(`📝 Output file: ${values.output}`)
+} catch (error) {
+	console.error(`❌ Error converting notes: ${error.message}`)
+	process.exit(1)
+}
 
 
 /* FUNCTIONS */
@@ -37,7 +60,7 @@ async function composeEntireMarkdown( notes ) {
 	const notesMap = new Map( modules.map( mod => [mod, {} ]) );
 	// sort lessons and add them to respective modules
 	[ ...notes ].sort( sortBy('lessonSlug') ).forEach( note => { 
-		let module = notesMap.get(genModuleTitle(note))
+		let module = notesMap.get(genModuleTitle(note)) || {}
 		if ( ! module[`${note.lessonTitle}`] ) module[`${note.lessonTitle}`] = []
 		let lessons = module[`${note.lessonTitle}`] 
 		lessons.push(note)
@@ -65,7 +88,15 @@ async function composeEntireMarkdown( notes ) {
 
 	// WRITE CONTENT INTO FILE 
 	let content = markdownBody.join('\n\n')
-	await fs.writeFile(`./dist/${notes[0].courseSlug}.md`, content)
+	// Ensure the output directory exists before writing
+	const outputDir = path.dirname(values.output)
+	try {
+		await fs.access(outputDir)
+	} catch (error) {
+		// Directory doesn't exist, create it
+		await fs.mkdir(outputDir, { recursive: true })
+	}
+	await fs.writeFile(values.output, content)
 }
 
 /**
@@ -92,11 +123,11 @@ function parseNoteContent(htmlContent) {
 	let converter = new TurndownService()
 	converter.addRule('removeEm', {
 		filter: 'em',
-		replacement: (content, node ) => node.innerHTML
+		replacement: (content, node ) => /** @type {HTMLElement} */ (node).innerHTML
 	})
 	converter.addRule('convertPre', {
 		filter: 'pre',
-		replacement: (content) => '```' + (courseType === 'js' ? 'jsx' : 'css') + '\n' + content + '\n' + '```'
+		replacement: (content) => '```' + (values.course === 'js' ? 'jsx' : 'css') + '\n' + content + '\n' + '```'
 	})
 	//const preTreatedHtmlContent = htmlContent.replace(/(?<!`)&lt;(.*)&gt;(?<!`)/g,'`&lt;$1&gt;`')
 	// This is not ideal, either replace the remainent manually with this rule on the editor (or use sanitizeAnchorTags):
@@ -112,8 +143,11 @@ function parseNoteContent(htmlContent) {
 
 // * if slug has 'project' instead of number it will be NaN - if NaN assign a hight number and set 'project on module title
 
-/** Create module title @param {Note} note @return {`${number} - ${Note['moduleTitle']}`} */
-function genModuleTitle(note) { return `${  getNum(note.moduleSlug) === 100 ? 'Project' : getNum(note.moduleSlug) } - ${note.moduleTitle}`}
+/** Create module title 
+ * @param {Note} note 
+ * @return {`${number | 'Project'} - ${Note['moduleTitle']}`} 
+ */
+function genModuleTitle(note) { return `${ getNum(note.moduleSlug) === 100 ? 'Project' : getNum(note.moduleSlug) } - ${note.moduleTitle}`}
 
 /** Get num from slug @param {Note['moduleSlug'] | Note['lessonSlug']} str */
 function getNum(str) { 
@@ -136,26 +170,15 @@ function convertSeconds(sec) {
 	return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}m`
 }
 
-
-
-/* --- TYPES --- */
-
-/** 
- * @typedef {object} Note
- * @property {string} id
- * @property {string} content
- * @property {number} createdAt
- * @property {number} updatedAt
- * @property {'lesson-text'|'lesson-video'} type
- * @property {string} courseSlug
- * @property {`${number}-${string}-${string}`} moduleSlug
- * @property {string} moduleTitle
- * @property {`${`${number}.`|''}${number}-${string}-${string}`} lessonSlug
- * @property {string} lessonTitle
- * @property {string} lessonHref
- * @property {object} metadata
- * @property {string?} metadata.highlighted
- * @property {string?} metadata.videoId
- * @property {string?} metadata.videoTitle
- * @property {number?} metadata.bookmarkedTime
+/**
+ * Check file existance otherwise raise an error message. 
+ * @param {string} path path to the file to be checked
  */
+async function checkFileExistance(path) {
+	try {
+		await fs.access(path);
+	} catch (error) {
+		console.error(`Error: The file at "${path}" does not exist or is not accessible.`);
+		process.exit(1);
+	}
+}
